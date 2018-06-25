@@ -208,3 +208,50 @@ function createElement(node) {
 
 ​	这看上去非常不错，让我们将节点的**props**暂时放在一边。我们稍后再讨论它们。我们理解虚拟DOM的基本概念不需要**props**，它们会徒增不少的复杂度。
 
+
+
+### 处理改变
+
+​	好了，现在我们已经可以将虚拟DOM转换为真实DOM了，是时候开始考虑如何去比较我们的虚拟DOM树了。首先，我们需要编写一个比较算法，它会比较新的树和旧的树之间的区别，然后只对真实DOM树进行最少的必要操作。
+
+​	如何去比较两棵树？我们需要处理下一个场景。
+
+- 添加了一个节点, 我们需要通过`appendChild(...)`来添加
+
+  ![img](https://cdn-images-1.medium.com/max/800/1*GFUWrX6pBgiDQ5Z-IvzjUw.png)
+
+- 节点被移除了，我们需要通过`removeChild(...)`来处理
+
+  ![img](https://cdn-images-1.medium.com/max/800/1*VRoYwAeWPF0jbiWXsKb2HA.png) 
+
+- 节点被替换了，我们需要通过`replaceChild(...)`来处理
+
+  ![img](https://cdn-images-1.medium.com/max/800/1*6iQYEH0APjbuPvYmnD7Qlw.png) 
+
+- 我们需要去比较node树的子节点
+
+  ![img](https://cdn-images-1.medium.com/max/800/1*x1Eq-uuqgL0z9d9qn_opww.png) 
+
+  让我们编写一个叫做`updateElement(...)`的函数，这个函数可以接受3个变量`$parent, newNode 和 oldNode`, `$parent是我们虚拟DOM的真实DOM中的父元素，相比较。现在我们看看如何去处理上面描述的所有情况。
+
+
+
+### 新增节点
+
+​	这里挺简单的，我就不仔细说明了：
+
+```javascript
+function updateElement($parent, newNode, oldNode) {
+    if(!oldNode) {
+        $parent.appendChild(
+        	createElement(newNode)
+        );
+    }
+}
+```
+
+
+
+### 节点被删除了
+
+​	这种情况下，我们有一个问题，如果在虚拟DOM中的没有真实DOM中的某个节点，我们需要在真实DOM中移除它，我们应该怎么做呢？因为我们有了父元素（被传递给函数的），从而我们去引用真实的DOM去执行`$parent.removeChild(...)`。但是我们不知道。如果我们知道节点相对于他的父元素的位置，我们可以用`$parent.childNodes[index]`来引用它

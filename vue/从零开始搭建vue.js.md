@@ -70,3 +70,43 @@ npm install karma jasmine karma-jasmine karma-chrome-launcher
  karma-rollup-plugin karma-rollup-preprocessor buble  rollup-plugin-buble --save-dev
 ```
 
+在根目录下，创建`karma.conf.js`:
+
+```javascript
+module.exports = function(config) {
+    config.set({
+        files: [{ pattern: 'text/**/*.spec.js', watched: false }],
+        frameworks: ['jasmine'],
+        browsers: ['Chrome'],
+        preprocessors: {
+            './test/**/*.js':['rollup']
+        },
+        rollupPreprocessor: {
+            plugins: [
+                require('rollup-plugin-buble')(),
+            ],
+            output: {
+                format: 'life',
+                name: 'Vue',
+                sourcemap: 'inline'
+            }
+        }
+    })
+}
+```
+
+目录结构
+
+```
+- package.json
+- rollup.conf.js
+- node_modules
+- dist
+- test
+- src
+	- observer
+	- instance
+	- util
+	- vdom
+```
+

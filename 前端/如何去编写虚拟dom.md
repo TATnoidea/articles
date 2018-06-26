@@ -10,7 +10,7 @@
 
   现在让我们开始深入探讨这些概念。
 
-> 第二部分关于在虚拟DOM中设置 props 和 events 的文章在这里
+> 第二部分关于在虚拟DOM中设置 props 和 events 的文章在[这里](https://medium.com/@deathmood/write-your-virtual-dom-2-props-events-a957608f5c76) 
 
 
 
@@ -254,4 +254,194 @@ function updateElement($parent, newNode, oldNode) {
 
 ### 节点被删除了
 
-​	这种情况下，我们有一个问题，如果在虚拟DOM中的没有真实DOM中的某个节点，我们需要在真实DOM中移除它，我们应该怎么做呢？因为我们有了父元素（被传递给函数的），从而我们去引用真实的DOM去执行`$parent.removeChild(...)`。但是我们不知道。如果我们知道节点相对于他的父元素的位置，我们可以用`$parent.childNodes[index]`来引用它
+​	这种情况下，我们有一个问题，如果在虚拟DOM中的没有真实DOM中的某个节点，我们需要在真实DOM中移除它，我们应该怎么做呢？因为我们有了父元素（被传递给函数的），从而我们去引用真实的DOM去执行`$parent.removeChild(...)`。但是我们不知道。如果我们知道节点相对于他的父元素的位置，我们可以用`$parent.childNodes[index]`来引用它，`index`是需要删除的节点相对于它的父元素的位置。
+
+​	现在index应该要传给我们的函数了，所以我们的代码应该是：
+
+```javascript
+function updateElement($parent, newNode, oldNode, index = 0) {
+    if(!oldNode) {
+        $parent.appendChild(
+        	createElement(newNode)
+        );
+    } else if (!newNode) {
+        $parent.removeChild(
+        	$parent.childNodes(index)
+        )
+    }
+}
+```
+
+
+
+### 节点改变
+
+首先我们需要去编写一个比较两个节点的函数，告诉我们节点是否真的被改变了。我们需要考虑它可能是元素，也可能是文本。
+
+```javascript
+function changed(node1, node2) {
+    return typeof node1 !== typeof node2 ||
+           typeof node1 === 'string' && node1 !== node2 ||
+           node1.type !== node2.type
+}
+```
+
+现在，我们有了当前节点相对于父元素的索引，我们可以简单的替换成一个新创建的节点
+
+```javascript
+function updateElement($parent, newNode, oldNode, index = 0) {
+    if(!oldNode) {
+        $parent.appendChild(
+        	createElement(newNode)
+        );
+    } else if (!newNode) {
+        $parent.removeChild(
+        	$parent.childNodes[index]
+        );
+    } else if (changed(newNode, oldNode)) {
+        $parent.replaceChild(
+        	createElement(newNode),
+            $parent.childNodes[index]
+        );
+    }
+}
+```
+
+
+
+### 遍历比较子元素
+
+​	最后，我们需要通过调用`updateElement(...)`去遍历每一个节点的子元素并进行比较。是的，又要使用递归了。
+
+​	但是我们在写代码之前需要考虑一下几件事：
+
+- 我们只需要比较元素节点的子元素（文本节点不能有子元素）
+- 我们需要传递当前节点，作为`parent` 参数
+- 我们需要一个一个的去比较子元素，即使一些子元素是'undefined'，这个没问题，我们的函数可以处理这种情况。
+- 最后，***index***，它是子元素节点的索引相对于`children`数组。
+
+```javascript
+function updateElement($parent, newNode, oldNode, index = 0) {
+    if(!oldNode) {
+        $parent.appendChild(
+        	createElement(newNode)
+        );
+    } else if (!newNode) {
+        $parent.removeChild(
+        	$parent.childNode[index]
+        );
+    } else if (changed(newNode, oldNode)) {
+        $parent.replaceChild(
+        	createElement(newNode),
+            $parent.chaildNodes[index]
+        );
+    } else if (newNode.type) {
+        const newLength = newNode.children.length;
+        const oldLength = oldNode.children.length;
+        for(let i = 0; i < newLength || i < oldLength; i++) {
+            updateElement(
+            	$parent.childNodes[index], 
+                newNode.children[i],
+                oldNode.children[i],
+                i
+            );
+        }
+    }
+}
+```
+
+
+
+### 将它们整合在一起
+
+```javascript
+/** @jsx h */
+
+function h(type, props, ...children) {
+  return { type, props, children };
+}
+
+function createElement(node) {
+  if (typeof node === 'string') {
+    return document.createTextNode(node);
+  }
+  const $el = document.createElement(node.type);
+  node.children
+    .map(createElement)
+    .forEach($el.appendChild.bind($el));
+  return $el;
+}
+
+function changed(node1, node2) {
+  return typeof node1 !== typeof node2 ||
+         typeof node1 === 'string' && node1 !== node2 ||
+         node1.type !== node2.type
+}
+
+function updateElement($parent, newNode, oldNode, index = 0) {
+  if (!oldNode) {
+    $parent.appendChild(
+      createElement(newNode)
+    );
+  } else if (!newNode) {
+    $parent.removeChild(
+      $parent.childNodes[index]
+    );
+  } else if (changed(newNode, oldNode)) {
+    $parent.replaceChild(
+      createElement(newNode),
+      $parent.childNodes[index]
+    );
+  } else if (newNode.type) {
+    const newLength = newNode.children.length;
+    const oldLength = oldNode.children.length;
+    for (let i = 0; i < newLength || i < oldLength; i++) {
+      updateElement(
+        $parent.childNodes[index],
+        newNode.children[i],
+        oldNode.children[i],
+        i
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
+
+const a = (
+  <ul>
+    <li>item 1</li>
+    <li>item 2</li>
+  </ul>
+);
+
+const b = (
+  <ul>
+    <li>item 1</li>
+    <li>hello!</li>
+  </ul>
+);
+
+const $root = document.getElementById('root');
+const $reload = document.getElementById('reload');
+
+updateElement($root, a);
+$reload.addEventListener('click', () => {
+  updateElement($root, b, a);
+});
+```
+
+### 总结
+
+​	恭喜，我们已经完成了。我们就实现了一个虚拟DOM，并且它是好使的。我希望你在阅读完这篇文章以后能够理解虚拟DOM的基本概念，和react背后的工作原理。
+
+ 	然而，我这里还有一些没有提到的东西，我会在将来的文章中尽量讲到：
+
+- 设定元素属性（props），然后遍历比对/更新它们
+- 处理事件，给我们的元素添加事件监听器
+- 让我们的虚拟DOM能够在组件中工作，像react
+- 获得真实DOM节点的引用
+- 虚拟DOM与JS库相结合去操作真实DOM，像jQuery和它的插件。
+- 等等...
+
+> 更新：第二篇文章，关于如何给我们的虚拟DOM设置属性和事件的[地址](https://medium.com/@deathmood/write-your-virtual-dom-2-props-events-a957608f5c76) 
